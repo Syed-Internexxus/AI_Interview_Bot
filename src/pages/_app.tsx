@@ -1,6 +1,7 @@
+// pages/_app.tsx
 import "@/styles/globals.css";
-import type { AppProps } from "next/app";
+import InterviewPage from "./interviews"; // Direct import of the interviews page
 
-export default function App({ Component, pageProps }: AppProps) {
-  return <Component {...pageProps} />;
+export default function App() {
+  return <InterviewPage />;
 }

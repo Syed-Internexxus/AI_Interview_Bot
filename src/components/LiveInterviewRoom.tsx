@@ -34,7 +34,10 @@ export default function LiveInterviewRoom({ session, onEnd }: Props) {
   const [status, setStatus] = useState<
     'initializing' | 'connecting' | 'connected' | 'error' | 'closed'
   >('initializing')
-  const [audioStatus, setAudioStatus] = useState<'waiting' | 'playing' | 'stopped'>('waiting')
+  // add "no source" to the allowed literals
+const [audioStatus, setAudioStatus] = useState<
+  'waiting' | 'playing' | 'stopped' | 'no source'
+>('waiting')
   const [userInteracted, setUserInteracted]       = useState(false)
   const [isCallActive, setIsCallActive]           = useState(true)
   const [showControls, setShowControls]           = useState(false)

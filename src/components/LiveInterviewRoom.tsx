@@ -22,21 +22,25 @@ const COLORS = {
 }
 
 export default function LiveInterviewRoom({ session, onEnd }: Props) {
-  const audioRef = useRef<HTMLAudioElement>(null)
-  const userVideoRef = useRef<HTMLVideoElement>(null)
-  const audioContextRef = useRef<AudioContext>()
-  const pcRef = useRef<RTCPeerConnection>()
-  const dcRef = useRef<RTCDataChannel>()
-  const [error, setError] = useState<string | null>(null)
-  const [status, setStatus] = useState<'initializing'|'connecting'|'connected'|'error'|'closed'>('initializing')
-  const [audioStatus, setAudioStatus] = useState<string>('waiting')
-  const [userInteracted, setUserInteracted] = useState<boolean>(false)
-  const [isCallActive, setIsCallActive] = useState<boolean>(true)
-  const [showControls, setShowControls] = useState<boolean>(false)
-  const [timer, setTimer] = useState<number>(0)
-  const [isSpeaking, setIsSpeaking] = useState<boolean>(false)
-  const [hasSentClosing, setHasSentClosing] = useState<boolean>(false)
+  const audioRef        = useRef<HTMLAudioElement | null>(null)
+  const userVideoRef    = useRef<HTMLVideoElement | null>(null)
 
+  // ⬇️ add an initial value so tsc is satisfied
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const pcRef           = useRef<RTCPeerConnection | null>(null)
+  const dcRef           = useRef<RTCDataChannel | null>(null)
+
+  const [error, setError] = useState<string | null>(null)
+  const [status, setStatus] = useState<
+    'initializing' | 'connecting' | 'connected' | 'error' | 'closed'
+  >('initializing')
+  const [audioStatus, setAudioStatus] = useState<'waiting' | 'playing' | 'stopped'>('waiting')
+  const [userInteracted, setUserInteracted]       = useState(false)
+  const [isCallActive, setIsCallActive]           = useState(true)
+  const [showControls, setShowControls]           = useState(false)
+  const [timer, setTimer]                         = useState(0)
+  const [isSpeaking, setIsSpeaking]               = useState(false)
+  const [hasSentClosing, setHasSentClosing]       = useState(false)
   // Setup user video preview
   useEffect(() => {
     async function setupVideo() {

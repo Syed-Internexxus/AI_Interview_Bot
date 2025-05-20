@@ -373,7 +373,6 @@ export default function LiveInterviewRoom({ session, onEnd }: Props) {
               <div className="flex gap-2 flex-wrap">
                 <button onClick={() => { handleUserInteraction(); tryPlayAudio() }} className="px-4 py-2 rounded bg-accent text-white">Enable Audio</button>
                 <button onClick={() => tryPlayAudio()} className="px-4 py-2 rounded bg-primary text-white">Test Audio</button>
-                <button onClick={() => setupDirectAudioPath()} className="px-4 py-2 rounded bg-primary text-white">Force Direct</button>
               </div>
               <button onClick={() => setShowControls(false)} className="w-full py-2 bg-secondary text-white rounded mt-4">Close</button>
             </div>

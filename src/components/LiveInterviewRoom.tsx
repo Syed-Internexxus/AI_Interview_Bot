@@ -24,8 +24,6 @@ const COLORS = {
 export default function LiveInterviewRoom({ session, onEnd }: Props) {
   const audioRef        = useRef<HTMLAudioElement | null>(null)
   const userVideoRef    = useRef<HTMLVideoElement | null>(null)
-
-  // ⬇️ add an initial value so tsc is satisfied
   const audioContextRef = useRef<AudioContext | null>(null)
   const pcRef           = useRef<RTCPeerConnection | null>(null)
   const dcRef           = useRef<RTCDataChannel | null>(null)
@@ -34,16 +32,16 @@ export default function LiveInterviewRoom({ session, onEnd }: Props) {
   const [status, setStatus] = useState<
     'initializing' | 'connecting' | 'connected' | 'error' | 'closed'
   >('initializing')
-  // add "no source" to the allowed literals
-const [audioStatus, setAudioStatus] = useState<
-  'waiting' | 'playing' | 'stopped' | 'no source'
->('waiting')
-  const [userInteracted, setUserInteracted]       = useState(false)
-  const [isCallActive, setIsCallActive]           = useState(true)
-  const [showControls, setShowControls]           = useState(false)
-  const [timer, setTimer]                         = useState(0)
-  const [isSpeaking, setIsSpeaking]               = useState(false)
-  const [hasSentClosing, setHasSentClosing]       = useState(false)
+  const [audioStatus, setAudioStatus] = useState<
+    'waiting' | 'playing' | 'stopped' | 'no source' | 'failed'
+  >('waiting')
+  const [userInteracted, setUserInteracted] = useState(false)
+  const [isCallActive, setIsCallActive] = useState(true)
+  const [showControls, setShowControls] = useState(false)
+  const [timer, setTimer] = useState(0)
+  const [isSpeaking, setIsSpeaking] = useState(false)
+  const [hasSentClosing, setHasSentClosing] = useState(false)
+
   // Setup user video preview
   useEffect(() => {
     async function setupVideo() {
@@ -69,15 +67,16 @@ const [audioStatus, setAudioStatus] = useState<
   const ensureAudioContext = () => {
     if (!audioContextRef.current) {
       try {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+        audioContextRef.current =
+          new (window.AudioContext || (window as any).webkitAudioContext)()
         if (audioContextRef.current.state === 'suspended') {
-          audioContextRef.current.resume().catch(e => console.error('AudioContext resume failed:', e))
+          audioContextRef.current.resume().catch(e => console.error(e))
         }
       } catch (e: any) {
         setError(`Audio system error: ${e.message}`)
       }
     } else if (audioContextRef.current.state === 'suspended') {
-      audioContextRef.current.resume().catch(e => console.error('Resume failed:', e))
+      audioContextRef.current.resume().catch(e => console.error(e))
     }
     return audioContextRef.current
   }
@@ -93,7 +92,9 @@ const [audioStatus, setAudioStatus] = useState<
     const audioContext = ensureAudioContext()
     if (audioContext) {
       try {
-        const src = audioContext.createMediaStreamSource(audioRef.current.srcObject as MediaStream)
+        const src = audioContext.createMediaStreamSource(
+          audioRef.current.srcObject as MediaStream
+        )
         const analyser = audioContext.createAnalyser()
         analyser.fftSize = 256
         src.connect(analyser)
@@ -112,7 +113,8 @@ const [audioStatus, setAudioStatus] = useState<
       }
     }
 
-    audioRef.current.play()
+    audioRef.current
+      .play()
       .then(() => setAudioStatus('playing'))
       .catch(() => {
         setAudioStatus('failed')
@@ -138,11 +140,20 @@ const [audioStatus, setAudioStatus] = useState<
   // Closing-soon hook
   useEffect(() => {
     const threshold = 30
-    if (status === 'connected' && !hasSentClosing && timer >= session.durationSec - threshold) {
-      dcRef.current?.send(JSON.stringify({
-        type: 'session.update',
-        session: { instructions: 'The interview is nearing its end. Please begin your closing remarks and summary.' }
-      }))
+    if (
+      status === 'connected' &&
+      !hasSentClosing &&
+      timer >= session.durationSec - threshold
+    ) {
+      dcRef.current?.send(
+        JSON.stringify({
+          type: 'session.update',
+          session: {
+            instructions:
+              'The interview is nearing its end. Please begin your closing remarks and summary.',
+          },
+        })
+      )
       setHasSentClosing(true)
     }
   }, [timer, status, hasSentClosing, session.durationSec])
@@ -155,7 +166,6 @@ const [audioStatus, setAudioStatus] = useState<
     async function startWebRTC() {
       try {
         setStatus('connecting')
-
         const res = await fetch('/api/realtime/session', { method: 'POST' })
         if (!res.ok) {
           const err = await res.json().catch(() => ({ message: 'Unknown error' }))
@@ -171,17 +181,22 @@ const [audioStatus, setAudioStatus] = useState<
             { urls: 'stun:stun2.l.google.com:19302' },
             { urls: 'stun:stun3.l.google.com:19302' },
             { urls: 'stun:stun4.l.google.com:19302' },
-          ]
+          ],
         })
         pcRef.current = pc
 
-        pc.onconnectionstatechange = () => console.log(`Connection: ${pc.connectionState}`)
-        pc.onicegatheringstatechange = () => console.log(`ICE Gathering: ${pc.iceGatheringState}`)
-        pc.onsignalingstatechange = () => console.log(`Signaling: ${pc.signalingState}`)
+        pc.onconnectionstatechange = () =>
+          console.log(`Connection: ${pc.connectionState}`)
+        pc.onicegatheringstatechange = () =>
+          console.log(`ICE Gathering: ${pc.iceGatheringState}`)
+        pc.onsignalingstatechange = () =>
+          console.log(`Signaling: ${pc.signalingState}`)
 
         pc.addTransceiver('audio', { direction: 'recvonly' })
 
-        const micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })
+        const micStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        })
         micStream.getTracks().forEach(t => pc.addTrack(t, micStream))
 
         pc.ontrack = ev => {
@@ -208,31 +223,49 @@ const [audioStatus, setAudioStatus] = useState<
             }
 
             if (userInteracted) tryPlayAudio()
-            else if (!autoStarted) { autoStarted = true; setTimeout(handleUserInteraction, 500) }
+            else if (!autoStarted) {
+              autoStarted = true
+              setTimeout(handleUserInteraction, 500)
+            }
           }
         }
 
         const dc = pc.createDataChannel('realtime')
         dcRef.current = dc
         dc.onopen = () => {
-          dc.send(JSON.stringify({ type: 'session.update', session: { instructions: session.introduction } }))
+          dc.send(
+            JSON.stringify({ type: 'session.update', session: { instructions: session.introduction } })
+          )
           dc.send(JSON.stringify({ type: 'ai.start', start_first: true }))
         }
         dc.onmessage = e => {
-          try { const data = JSON.parse(e.data); if (data.type==='ai.speaking') setIsSpeaking(data.value) } catch {}
+          try {
+            const data = JSON.parse(e.data)
+            if (data.type === 'ai.speaking') setIsSpeaking(data.value)
+          } catch {}
         }
 
         const offer = await pc.createOffer()
         await pc.setLocalDescription(offer)
-        const ans = await fetch(`${process.env.NEXT_PUBLIC_OPENAI_WEBRTC_URL}?model=${process.env.NEXT_PUBLIC_AOAI_DEPLOYMENT_NAME}`, {
-          method:'POST', body: offer.sdp, headers:{ Authorization:`Bearer ${key}`, 'Content-Type':'application/sdp' }
-        })
+        const ans = await fetch(
+          `${process.env.NEXT_PUBLIC_OPENAI_WEBRTC_URL}?model=${
+            process.env.NEXT_PUBLIC_AOAI_DEPLOYMENT_NAME
+          }`,
+          {
+            method: 'POST',
+            body: offer.sdp,
+            headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/sdp' },
+          }
+        )
         if (!ans.ok) throw new Error(`SDP exchange failed: ${ans.status}`)
         const answerSdp = await ans.text()
         await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp })
 
         pc.oniceconnectionstatechange = () => {
-          if (['closed','failed','disconnected'].includes(pc.iceConnectionState)) { setIsCallActive(false); onEnd() }
+          if (['closed', 'failed', 'disconnected'].includes(pc.iceConnectionState)) {
+            setIsCallActive(false)
+            onEnd()
+          }
         }
       } catch (e: any) {
         console.error('WebRTC error', e)
@@ -241,14 +274,28 @@ const [audioStatus, setAudioStatus] = useState<
       }
     }
     startWebRTC()
-    return () => { audioContextRef.current?.close(); pcRef.current?.close(); dcRef.current?.close() }
+    return () => {
+      audioContextRef.current?.close()
+      pcRef.current?.close()
+      dcRef.current?.close()
+    }
   }, [session, onEnd, userInteracted])
 
-  const endCall = () => { audioContextRef.current?.close(); dcRef.current?.close(); pcRef.current?.close(); setIsCallActive(false); onEnd() }
+  const endCall = () => {
+    audioContextRef.current?.close()
+    dcRef.current?.close()
+    pcRef.current?.close()
+    setIsCallActive(false)
+    onEnd()
+  }
   const toggleControls = () => setShowControls(v => !v)
 
   return (
-    <div className="flex flex-col h-screen" style={{ backgroundColor: COLORS.primary }} onClick={handleUserInteraction}>
+    <div
+      className="flex flex-col h-screen"
+      style={{ backgroundColor: COLORS.primary }}
+      onClick={handleUserInteraction}
+    >
       {/* Main area */}
       <div className="flex-1 flex items-center justify-center relative">
         <div className="relative">

@@ -22,12 +22,11 @@ const COLORS = {
 }
 
 export default function LiveInterviewRoom({ session, onEnd }: Props) {
-  const audioRef        = useRef<HTMLAudioElement>(null)
-  const userVideoRef    = useRef<HTMLVideoElement>(null)
-  const audioContextRef = useRef<AudioContext | null>(null)
-  const pcRef           = useRef<RTCPeerConnection | null>(null)
-  const dcRef           = useRef<RTCDataChannel | null>(null)
-
+  const audioRef = useRef<HTMLAudioElement>(null)
+  const userVideoRef = useRef<HTMLVideoElement>(null)
+  const audioContextRef = useRef<AudioContext>()
+  const pcRef = useRef<RTCPeerConnection>()
+  const dcRef = useRef<RTCDataChannel>()
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<'initializing'|'connecting'|'connected'|'error'|'closed'>('initializing')
   const [audioStatus, setAudioStatus] = useState<string>('waiting')
@@ -38,8 +37,7 @@ export default function LiveInterviewRoom({ session, onEnd }: Props) {
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false)
   const [hasSentClosing, setHasSentClosing] = useState<boolean>(false)
 
-  // ────────────────────────────────────────────
-  // Video preview
+  // Setup user video preview
   useEffect(() => {
     async function setupVideo() {
       try {
@@ -64,9 +62,7 @@ export default function LiveInterviewRoom({ session, onEnd }: Props) {
   const ensureAudioContext = () => {
     if (!audioContextRef.current) {
       try {
-        audioContextRef.current = new (
-          (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext
-        )()
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
         if (audioContextRef.current.state === 'suspended') {
           audioContextRef.current.resume().catch(e => console.error('AudioContext resume failed:', e))
         }
@@ -117,7 +113,6 @@ export default function LiveInterviewRoom({ session, onEnd }: Props) {
       })
   }
 
-  // ────────────────────────────────────────────
   // Call timer
   useEffect(() => {
     let interval: NodeJS.Timeout
@@ -133,7 +128,6 @@ export default function LiveInterviewRoom({ session, onEnd }: Props) {
     return `${m}:${s}`
   }
 
-  // ────────────────────────────────────────────
   // Closing-soon hook
   useEffect(() => {
     const threshold = 30
@@ -146,7 +140,6 @@ export default function LiveInterviewRoom({ session, onEnd }: Props) {
     }
   }, [timer, status, hasSentClosing, session.durationSec])
 
-  // ────────────────────────────────────────────
   // WebRTC setup
   useEffect(() => {
     let pc: RTCPeerConnection
@@ -175,15 +168,13 @@ export default function LiveInterviewRoom({ session, onEnd }: Props) {
         })
         pcRef.current = pc
 
-        pc.onconnectionstatechange   = () => console.log(`Connection: ${pc.connectionState}`)
+        pc.onconnectionstatechange = () => console.log(`Connection: ${pc.connectionState}`)
         pc.onicegatheringstatechange = () => console.log(`ICE Gathering: ${pc.iceGatheringState}`)
-        pc.onsignalingstatechange    = () => console.log(`Signaling: ${pc.signalingState}`)
+        pc.onsignalingstatechange = () => console.log(`Signaling: ${pc.signalingState}`)
 
         pc.addTransceiver('audio', { direction: 'recvonly' })
 
-        const micStream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-        })
+        const micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })
         micStream.getTracks().forEach(t => pc.addTrack(t, micStream))
 
         pc.ontrack = ev => {
@@ -221,27 +212,20 @@ export default function LiveInterviewRoom({ session, onEnd }: Props) {
           dc.send(JSON.stringify({ type: 'ai.start', start_first: true }))
         }
         dc.onmessage = e => {
-          try {
-            const data = JSON.parse(e.data)
-            if (data.type === 'ai.speaking') setIsSpeaking(data.value)
-          } catch { /* ignore */ }
+          try { const data = JSON.parse(e.data); if (data.type==='ai.speaking') setIsSpeaking(data.value) } catch {}
         }
 
         const offer = await pc.createOffer()
         await pc.setLocalDescription(offer)
-        const ans = await fetch(
-          `${process.env.NEXT_PUBLIC_OPENAI_WEBRTC_URL}?model=${process.env.NEXT_PUBLIC_AOAI_DEPLOYMENT_NAME}`,
-          { method:'POST', body: offer.sdp, headers:{ Authorization:`Bearer ${key}`, 'Content-Type':'application/sdp' } }
-        )
+        const ans = await fetch(`${process.env.NEXT_PUBLIC_OPENAI_WEBRTC_URL}?model=${process.env.NEXT_PUBLIC_AOAI_DEPLOYMENT_NAME}`, {
+          method:'POST', body: offer.sdp, headers:{ Authorization:`Bearer ${key}`, 'Content-Type':'application/sdp' }
+        })
         if (!ans.ok) throw new Error(`SDP exchange failed: ${ans.status}`)
         const answerSdp = await ans.text()
         await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp })
 
         pc.oniceconnectionstatechange = () => {
-          if (['closed','failed','disconnected'].includes(pc.iceConnectionState)) {
-            setIsCallActive(false)
-            onEnd()
-          }
+          if (['closed','failed','disconnected'].includes(pc.iceConnectionState)) { setIsCallActive(false); onEnd() }
         }
       } catch (e: any) {
         console.error('WebRTC error', e)
@@ -249,206 +233,95 @@ export default function LiveInterviewRoom({ session, onEnd }: Props) {
         setStatus('error')
       }
     }
-
     startWebRTC()
-    return () => {
-      audioContextRef.current?.close()
-      pcRef.current?.close()
-      dcRef.current?.close()
-    }
+    return () => { audioContextRef.current?.close(); pcRef.current?.close(); dcRef.current?.close() }
   }, [session, onEnd, userInteracted])
 
-  // ────────────────────────────────────────────
-  // Helpers
-  const endCall        = () => { audioContextRef.current?.close(); dcRef.current?.close(); pcRef.current?.close(); setIsCallActive(false); onEnd() }
+  const endCall = () => { audioContextRef.current?.close(); dcRef.current?.close(); pcRef.current?.close(); setIsCallActive(false); onEnd() }
   const toggleControls = () => setShowControls(v => !v)
 
-  // Minimal stub so TS compiles; replace with your real implementation if needed
-  const setupDirectAudioPath = () => {
-    if (audioRef.current) {
-      audioRef.current.pause()
-      audioRef.current.srcObject = null
-      tryPlayAudio()
-    }
-  }
-
-  // ────────────────────────────────────────────
-  // JSX
   return (
-    <div
-      className="flex flex-col h-screen"
-      style={{ backgroundColor: COLORS.primary }}
-      onClick={handleUserInteraction}
-    >
+    <div className="flex flex-col h-screen" style={{ backgroundColor: COLORS.primary }} onClick={handleUserInteraction}>
       {/* Main area */}
       <div className="flex-1 flex items-center justify-center relative">
         <div className="relative">
-          <div
-            className={`rounded-full w-32 h-32 flex items-center justify-center transition-transform duration-300 ${isSpeaking ? 'scale-105' : 'scale-100'}`}
-            style={{ backgroundColor: COLORS.secondary }}
-          >
-            <div
-              className="rounded-full w-24 h-24"
-              style={{ backgroundColor: COLORS.light }}
-            />
+          <div className={`rounded-full w-32 h-32 flex items-center justify-center transition-transform duration-300 ${isSpeaking?'scale-105':'scale-100'}`} style={{ backgroundColor: COLORS.secondary }}>
+            <div className="rounded-full w-24 h-24" style={{ backgroundColor: COLORS.light }} />
           </div>
           {isSpeaking && (
             <>
-              <div
-                className="absolute top-1/2 left-1/2 rounded-full"
-                style={{ width:'8rem',height:'8rem',backgroundColor:COLORS.secondary, animation:'ripple 1.2s ease-out infinite' }}
-              />
-              <div
-                className="absolute top-1/2 left-1/2 rounded-full"
-                style={{ width:'10rem',height:'10rem',backgroundColor:COLORS.secondary, animation:'ripple 1.6s ease-out infinite' }}
-              />
+              <div className="absolute top-1/2 left-1/2 rounded-full" style={{ width:'8rem',height:'8rem',backgroundColor:COLORS.secondary, animation:'ripple 1.2s ease-out infinite' }} />
+              <div className="absolute top-1/2 left-1/2 rounded-full" style={{ width:'10rem',height:'10rem',backgroundColor:COLORS.secondary, animation:'ripple 1.6s ease-out infinite' }} />
             </>
           )}
         </div>
-
-        <video
-          ref={userVideoRef}
-          className="absolute bottom-24 right-6 w-48 h-36 object-cover rounded-lg border-2 border-white shadow-lg"
-          autoPlay
-          muted
-          playsInline
-        />
+        <video ref={userVideoRef} className="absolute bottom-24 right-6 w-48 h-36 object-cover rounded-lg border-2 border-white shadow-lg" autoPlay muted playsInline />
         <audio ref={audioRef} className="hidden" autoPlay />
-
-        {status !== 'connected' && (
+        {status!=='connected' && (
           <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-white px-4 py-2 rounded-full shadow flex items-center space-x-2">
-            <span
-              className={`w-2 h-2 rounded-full animate-pulse ${
-                status === 'connecting'
-                  ? 'bg-yellow-500'
-                  : status === 'error'
-                  ? 'bg-red-500'
-                  : 'bg-green-500'
-              }`}
-            />
-            <span>
-              {status === 'connecting'
-                ? 'Connecting...'
-                : status === 'error'
-                ? 'Connection error'
-                : 'Initializing...'}
-            </span>
+            <span className={`w-2 h-2 rounded-full animate-pulse ${status==='connecting'?'bg-yellow-500':status==='error'?'bg-red-500':'bg-green-500'}`} />
+            <span>{status==='connecting'?'Connecting...':status==='error'?'Connection error':'Initializing...'}</span>
           </div>
         )}
       </div>
-
-      {/* Bottom bar */}
-      <div
+        {/* Bottom bar */}
+        <div
         className="relative flex items-center p-4"
-        style={{ backgroundColor: COLORS.accent }}
-      >
+        style={{ backgroundColor: "#16d5a8" }}
+        >
         {/* Left: timer + label */}
         <div className="flex items-center space-x-2">
-          <span className="font-mono font-medium text-base text-white">
+            <span className="font-mono font-medium text-base text-white">
             {formatTime(timer)}
-          </span>
-          <span className="text-white">|</span>
-          <span className="font-medium text-base text-white">AI Interview</span>
+            </span>
+            <span className="text-white">|</span>
+            <span className="font-medium text-base text-white">
+            AI Interview
+            </span>
         </div>
 
         {/* Centered buttons */}
         <div className="absolute left-1/2 transform -translate-x-1/2 flex space-x-4">
-          <button
+            <button
             onClick={toggleControls}
             className="p-3 rounded-full"
             style={{ backgroundColor: COLORS.primary }}
-          >
+            >
             <FaCog color={COLORS.white} />
-          </button>
-          <button
+            </button>
+            <button
             onClick={endCall}
             className="p-3 rounded-full"
             style={{ backgroundColor: COLORS.danger }}
-          >
+            >
             <FaPhoneSlash color={COLORS.white} />
-          </button>
-          <button
+            </button>
+            <button
             className="p-3 rounded-full"
             style={{ backgroundColor: COLORS.primary }}
-          >
+            >
             <FaExclamationTriangle color={COLORS.white} />
-          </button>
+            </button>
         </div>
-      </div>
-
+        </div>
       {/* Controls overlay */}
       {showControls && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20"
-          onClick={() => setShowControls(false)}
-        >
-          <div
-            className="bg-white rounded-lg p-6 w-11/12 max-w-md"
-            onClick={e => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20" onClick={() => setShowControls(false)}>
+          <div className="bg-white rounded-lg p-6 w-11/12 max-w-md" onClick={e => e.stopPropagation()}>
             <h2 className="text-xl font-semibold mb-4">Audio Settings</h2>
-            <p className="mb-2">
-              Status: <strong>{status}</strong> | Audio:{' '}
-              <strong>{audioStatus}</strong>
-            </p>
-            {error && (
-              <div className="mb-4 p-3 bg-red-100 text-red-600 rounded">
-                {error}
-              </div>
-            )}
-
+            <p className="mb-2">Status: <strong>{status}</strong> | Audio: <strong>{audioStatus}</strong></p>
+            {error && <div className="mb-4 p-3 bg-red-100 text-red-600 rounded">{error}</div>}
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <label htmlFor="volumeSlider">Volume:</label>
-                <input
-                  id="volumeSlider"
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  defaultValue="1"
-                  className="flex-1"
-                  onChange={e => {
-                    if (audioRef.current)
-                      audioRef.current.volume = parseFloat(e.target.value)
-                  }}
-                />
+                <input id="volumeSlider" type="range" min="0" max="1" step="0.1" defaultValue="1" className="flex-1" onChange={e => { if(audioRef.current) audioRef.current.volume = parseFloat(e.target.value) }} />
               </div>
-
               <div className="flex gap-2 flex-wrap">
-                <button
-                  onClick={() => {
-                    handleUserInteraction()
-                    tryPlayAudio()
-                  }}
-                  className="px-4 py-2 rounded"
-                  style={{ backgroundColor: COLORS.accent, color: COLORS.white }}
-                >
-                  Enable Audio
-                </button>
-                <button
-                  onClick={() => tryPlayAudio()}
-                  className="px-4 py-2 rounded"
-                  style={{ backgroundColor: COLORS.primary, color: COLORS.white }}
-                >
-                  Test Audio
-                </button>
-                <button
-                  onClick={() => setupDirectAudioPath()}
-                  className="px-4 py-2 rounded"
-                  style={{ backgroundColor: COLORS.primary, color: COLORS.white }}
-                >
-                  Force Direct
-                </button>
+                <button onClick={() => { handleUserInteraction(); tryPlayAudio() }} className="px-4 py-2 rounded bg-accent text-white">Enable Audio</button>
+                <button onClick={() => tryPlayAudio()} className="px-4 py-2 rounded bg-primary text-white">Test Audio</button>
+                <button onClick={() => setupDirectAudioPath()} className="px-4 py-2 rounded bg-primary text-white">Force Direct</button>
               </div>
-
-              <button
-                onClick={() => setShowControls(false)}
-                className="w-full py-2 rounded mt-4"
-                style={{ backgroundColor: COLORS.secondary, color: COLORS.white }}
-              >
-                Close
-              </button>
+              <button onClick={() => setShowControls(false)} className="w-full py-2 bg-secondary text-white rounded mt-4">Close</button>
             </div>
           </div>
         </div>
@@ -456,18 +329,9 @@ export default function LiveInterviewRoom({ session, onEnd }: Props) {
 
       <style jsx global>{`
         @keyframes ripple {
-          0% {
-            transform: translate(-50%, -50%) scale(0.8);
-            opacity: 0.5;
-          }
-          70% {
-            transform: translate(-50%, -50%) scale(1.2);
-            opacity: 0;
-          }
-          100% {
-            transform: translate(-50%, -50%) scale(1.2);
-            opacity: 0;
-          }
+          0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.5; }
+          70% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
+          100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
         }
       `}</style>
     </div>

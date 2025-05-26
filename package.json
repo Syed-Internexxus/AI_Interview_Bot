@@ -11,6 +11,8 @@
   "dependencies": {
     "@azure/identity": "^4.10.0",
     "@jitsi/react-sdk": "^1.4.4",
+    "form-data": "^4.0.2",
+    "formidable": "^3.5.4",
     "framer-motion": "^12.11.4",
     "microsoft-cognitiveservices-speech-sdk": "^1.43.1",
     "next": "15.3.2",

@@ -37,7 +37,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         turn_detection: {
           type: "server_vad",
           threshold: 0.5,
-          silence_duration_ms: 800,  // More wait time before AI responds
+          silence_duration_ms: 400,  // More wait time before AI responds
           prefix_padding_ms: 300,
           create_response: true,
           interrupt_response: true

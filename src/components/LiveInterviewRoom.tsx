@@ -25,12 +25,12 @@ const COLORS = {
 
 export default function LiveInterviewRoom({ session, onEnd }: Props) {
   /* refs */
-  const audioRef        = useRef<HTMLAudioElement>(null)
-  const userVideoRef    = useRef<HTMLVideoElement>(null)
-  const audioContextRef = useRef<AudioContext>()
-  const pcRef           = useRef<RTCPeerConnection>()
-  const dcRef           = useRef<RTCDataChannel>()
-  const realtimeRef     = useRef<Gpt4oRealtimeClient>()
+  const audioRef        = useRef<HTMLAudioElement | null>(null)
+  const userVideoRef    = useRef<HTMLVideoElement  | null>(null)
+  const audioContextRef = useRef<AudioContext       | null>(null)
+  const pcRef           = useRef<RTCPeerConnection | null>(null)
+  const dcRef           = useRef<RTCDataChannel     | null>(null)
+  const realtimeRef     = useRef<Gpt4oRealtimeClient| null>(null)
 
   /* state */
   const [error,  setError]  = useState<string | null>(null)

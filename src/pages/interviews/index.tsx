@@ -1,20 +1,28 @@
-// pages/interviews/index.tsx
 import { NextPage } from 'next';
 import { useRouter } from 'next/router';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { FaSearch } from 'react-icons/fa';
 import { InterviewCard, Interview } from '@/components/InterviewCard';
 import { CategoryNav } from '@/components/CategoryNav';
 
+// Brand colors
+const COLORS = {
+  accent: '#16D5A8',     // Cornflower Blue (accent)
+  primary: '#18326F',    // Java (primary text)
+  secondary: '#6288CE',  // Biscay
+  background: '#87B2FF'  // Danube
+};
+
 const rolesMap: Record<string, { id: string; name: string }[]> = {
   software: [
-    { id: 'frontend',  name: 'Frontend'   },
-    { id: 'backend',   name: 'Backend'    },
+    { id: 'frontend',  name: 'Frontend Engineer'   },
+    { id: 'backend',   name: 'Backend Engineer'    },
     { id: 'fullstack', name: 'Fullstack'  },
   ],
   'data-science': [
     { id: 'analyst', name: 'Analyst'             },
-    { id: 'ml',      name: 'Machine Learning'    },
+    { id: 'ml',      name: 'Machine Learning Engineer'    },
     { id: 'de',      name: 'Data Engineering'    },
     { id: 'bi',      name: 'Business Intelligence' },
   ],
@@ -83,10 +91,10 @@ const InterviewsPage: NextPage = () => {
   const [category, setCategory]           = useState<string>('software');
   const [role, setRole]                   = useState<string>('');
   const [search, setSearch]               = useState<string>('');
-
+  
   const categories = Object.keys(rolesMap);
 
-  // 1) Load EVERY category once
+  // Load all interviews once
   useEffect(() => {
     Promise.all(
       categories.map(cat =>
@@ -97,7 +105,7 @@ const InterviewsPage: NextPage = () => {
     ).then(chunks => setAllInterviews(chunks.flat()));
   }, []);
 
-  // 2) When `search` changes, override category+role fetch
+  // Search filter
   useEffect(() => {
     const q = search.trim().toLowerCase();
     if (!q) return;
@@ -110,17 +118,16 @@ const InterviewsPage: NextPage = () => {
     if (matches.length) {
       const firstCat = matches[0].category;
       setCategory(firstCat);
-      setRole('');  // clear any role filter
-      // show only matches in that category
+      setRole('');
       setInterviews(matches.filter(iv => iv.category === firstCat));
     } else {
-      setInterviews([]); // no hits
+      setInterviews([]);
     }
   }, [search, allInterviews]);
 
-  // 3) When category or role changes **and** search is empty, normal fetch
+  // Category/role fetch
   useEffect(() => {
-    if (search.trim()) return;  
+    if (search.trim()) return;
     const params = new URLSearchParams({ category });
     if (role) params.append('role', role);
     fetch(`/api/interviews?${params.toString()}`)
@@ -131,14 +138,24 @@ const InterviewsPage: NextPage = () => {
   const roles = rolesMap[category] ?? [];
 
   return (
-    <main style={{ background: '#F5FCFF' }} className="min-h-screen py-12">
-      {/* Header */}
+    <main style={{ background: COLORS.background }} className="min-h-screen py-12">
+      {/* Top header with logo */}
+      <header className="flex items-center px-6 py-4">
+        <Image
+          src="/internexxus-logo.png"
+          alt="Internexxus Logo"
+          width={250}
+          height={125}
+        />
+      </header>
+
+      {/* Page title */}
       <div className="relative text-center px-4 mb-8">
-        <h1 className="text-4xl font-bold" style={{ color: '#18326F' }}>
+        <h1 className="text-4xl font-bold" style={{ color: COLORS.primary }}>
           {category.charAt(0).toUpperCase() + category.slice(1)}
           {role && ` - ${role.charAt(0).toUpperCase() + role.slice(1)}`} Mock Interviews
         </h1>
-        <p className="mt-2 text-lg" style={{ color: '#18326F' }}>
+        <p className="mt-2 text-lg" style={{ color: COLORS.primary }}>
           Practice with 100+ expert-vetted interviews, get feedback on your performance,
           and land your dream opportunity.
         </p>
@@ -147,18 +164,19 @@ const InterviewsPage: NextPage = () => {
       {/* Search bar */}
       <div className="flex justify-center mb-6 px-6">
         <div className="relative w-full max-w-md">
-          <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#18326F]" />
+          <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2" style={{ color: COLORS.primary }} />
           <input
             type="text"
             placeholder="Search interviews..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="
-              w-full pl-10 pr-4 py-2
-              border border-gray-300 rounded-full
-              text-black placeholder-black caret-black
-              focus:outline-none focus:ring-2 focus:ring-[#87B2FF]
-            "
+            className="w-full pl-10 pr-4 py-2 rounded-full focus:outline-none focus:ring-2"
+            style={{
+              border: `1px solid ${COLORS.secondary}`,
+              color: COLORS.primary,
+              caretColor: COLORS.accent,
+              background: '#fff'
+            }}
           />
         </div>
       </div>

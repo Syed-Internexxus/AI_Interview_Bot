@@ -138,7 +138,7 @@ const InterviewsPage: NextPage = () => {
   const roles = rolesMap[category] ?? [];
 
   return (
-    <main style={{ background: COLORS.background }} className="min-h-screen py-12">
+    <main style={{ background: "#F5FCFF" }} className="min-h-screen py-12">
       {/* Top header with logo */}
       <header className="flex items-center px-6 py-4">
         <Image

@@ -30,25 +30,24 @@ jobs:
       
       - name: Create deployment package
         run: |
-          # Create a clean directory for deployment
-          mkdir deployment-package
+          # Create a temporary directory for deployment
+          mkdir temp-deployment
           
           # Copy built application
-          cp -r .next deployment-package/
-          cp -r public deployment-package/ 2>/dev/null || true
+          cp -r .next temp-deployment/
+          cp -r public temp-deployment/ 2>/dev/null || true
           
           # Copy essential files
-          cp package.json deployment-package/
-          cp package-lock.json deployment-package/
-          cp next.config.* deployment-package/ 2>/dev/null || true
+          cp package.json temp-deployment/
+          cp package-lock.json temp-deployment/
+          cp next.config.* temp-deployment/ 2>/dev/null || true
           
           # Install only production dependencies
-          cd deployment-package
+          cd temp-deployment
           npm ci --only=production
           
-          # Create zip
-          cd ..
-          zip -r release.zip deployment-package/*
+          # Create zip with contents at root level (not in subfolder)
+          zip -r ../release.zip .
       
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4

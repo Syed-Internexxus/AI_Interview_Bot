@@ -1,5 +1,3 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
 name: Build and deploy Node.js app to Azure Web App - AI-Interview-Chatbot
 
 on:
@@ -23,37 +21,34 @@ jobs:
           cache: 'npm'
       
       - name: Install dependencies
-        run: npm ci
+        run: npm install
       
       - name: Build Next.js app
         run: npm run build
+        env:
+          NODE_ENV: production
       
-      - name: Create deployment package
+      - name: Clean up for deployment
         run: |
-          # Create a temporary directory for deployment
-          mkdir temp-deployment
+          # Remove source files but keep built app and dependencies
+          rm -rf .git .github 
+          rm -rf src/ app/ components/ pages/ styles/ public/temp/ 2>/dev/null || true
+          rm -f .gitignore README.md .env.local .env.development 2>/dev/null || true
           
-          # Copy built application
-          cp -r .next temp-deployment/
-          cp -r public temp-deployment/ 2>/dev/null || true
+          # Remove dev dependencies to reduce size
+          npm prune --production
           
-          # Copy essential files
-          cp package.json temp-deployment/
-          cp package-lock.json temp-deployment/
-          cp next.config.* temp-deployment/ 2>/dev/null || true
-          
-          # Install only production dependencies
-          cd temp-deployment
-          npm ci --only=production
-          
-          # Create zip with contents at root level (not in subfolder)
-          zip -r ../release.zip .
+          # Remove unnecessary files from node_modules
+          find node_modules -name "*.md" -delete 2>/dev/null || true
+          find node_modules -name "test" -type d -exec rm -rf {} + 2>/dev/null || true
+          find node_modules -name "__tests__" -type d -exec rm -rf {} + 2>/dev/null || true
+          find node_modules -name "*.test.js" -delete 2>/dev/null || true
       
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: release.zip
+          path: .
 
   deploy:
     runs-on: ubuntu-latest
@@ -67,9 +62,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: node-app
-      
-      - name: Unzip artifact for deployment
-        run: unzip release.zip
+          path: .
       
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp

@@ -58,13 +58,13 @@ const LandingPage: NextPage = () => {
         <nav className="space-x-6">
           <button
             onClick={() => router.push('https://internexxus.com')}
-            className="text-sm font-semibold uppercase text-[#18326F]/80 hover:text-[#16D5A8] transition-colors"
+            className="text-sm font-semibold uppercase text-[#18326F]/80 hover:text-[#16D5A8] transition-colors cursor-pointer hover:cursor-pointer"
           >
             Home
           </button>
           <button
             onClick={() => router.push('/interviews')}
-            className="text-sm font-semibold uppercase text-[#18326F]/80 hover:text-[#16D5A8] transition-colors"
+            className="text-sm font-semibold uppercase text-[#18326F]/80 hover:text-[#16D5A8] transition-colors cursor-pointer hover:cursor-pointer"
           >
             Interviews
           </button>
@@ -92,7 +92,7 @@ const LandingPage: NextPage = () => {
         </p>
         <button
           onClick={handleCTA}
-          className="relative overflow-hidden px-10 py-4 rounded-full text-xl font-semibold transition-transform transform hover:scale-105"
+          className="relative overflow-hidden px-10 py-4 rounded-full text-xl font-semibold transition-transform transform hover:scale-105 cursor-pointer hover:cursor-pointer"
           style={{
             background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.secondary})`,
             color: '#FFFFFF',
